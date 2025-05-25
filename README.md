@@ -21,17 +21,16 @@ local MainTab = Window:CreateTab("Main", 4483362458)
 -- Variáveis gerais
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
-local VirtualInput = game:GetService("VirtualInputManager")
 
 local aimbotEnabled = false
 local FOV = 100
 local SpeedValue = 16
 local JumpPower = 50
 local InfJump = false
+local ESPEnabled = false
 
 -- Aimbot + FOV círculo
 local fovCircle = Drawing.new("Circle")
@@ -45,7 +44,7 @@ fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.
 local function GetClosestPlayer()
     local closest, shortestDistance = nil, FOV
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
             local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
             if onScreen then
                 local dist = (Vector2.new(pos.X, pos.Y) - fovCircle.Position).Magnitude
@@ -62,42 +61,65 @@ end
 RunService.RenderStepped:Connect(function()
     fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     fovCircle.Radius = FOV
+
     if aimbotEnabled then
         local target = GetClosestPlayer()
         if target and target.Character and target.Character:FindFirstChild("Head") then
-            local headPos = Camera:WorldToViewportPoint(target.Character.Head.Position)
-            VirtualInput:SendMouseMoveEvent(headPos.X, headPos.Y, game, 0)
+            local headPos = target.Character.Head.Position
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, headPos)
         end
     end
 end)
 
--- ESP
+-- ESP persistente
 local function AddESP(player)
-    local highlight = Instance.new("Highlight", player.Character)
+    if not player.Character then return end
+    if player.Character:FindFirstChild("PlayerESP") then return end
+
+    local highlight = Instance.new("Highlight")
     highlight.Name = "PlayerESP"
     highlight.FillColor = Color3.fromRGB(255, 0, 0)
     highlight.OutlineColor = Color3.new(0, 0, 0)
     highlight.FillTransparency = 0.3
     highlight.OutlineTransparency = 0.1
+    highlight.Parent = player.Character
 end
 
-local function RemoveESP(player)
-    if player.Character and player.Character:FindFirstChild("PlayerESP") then
-        player.Character.PlayerESP:Destroy()
+local function HandleCharacter(player)
+    if ESPEnabled then
+        AddESP(player)
     end
+    player.CharacterAdded:Connect(function()
+        if ESPEnabled then
+            task.wait(0.5)
+            AddESP(player)
+        end
+    end)
 end
 
 local function UpdateESP(enabled)
+    ESPEnabled = enabled
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= LocalPlayer then
             if enabled then
-                AddESP(player)
+                HandleCharacter(player)
             else
-                RemoveESP(player)
+                if player.Character and player.Character:FindFirstChild("PlayerESP") then
+                    player.Character.PlayerESP:Destroy()
+                end
             end
         end
     end
 end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if ESPEnabled then
+            task.wait(0.5)
+            AddESP(player)
+        end
+    end)
+end)
 
 -- Inf Jump
 UIS.JumpRequest:Connect(function()
