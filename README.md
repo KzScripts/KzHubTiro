@@ -1,8 +1,8 @@
--- Biblioteca Rayfield
+-- Carregar Rayfield UI
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "Kz Hub | Aimbot",
+    Name = "Kz Hub | Fps",
     LoadingTitle = "Kz Hub",
     LoadingSubtitle = "by Kz",
     ConfigurationSaving = {
@@ -18,13 +18,15 @@ local Window = Rayfield:CreateWindow({
 
 local MainTab = Window:CreateTab("Main", 4483362458)
 
--- Variáveis gerais
+-- Serviços
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
 
+-- Variáveis
 local aimbotEnabled = false
 local FOV = 100
 local SpeedValue = 16
@@ -32,7 +34,16 @@ local JumpPower = 50
 local InfJump = false
 local ESPEnabled = false
 
--- Aimbot + FOV círculo
+-- Anti-AFK
+local AntiAFK = true
+spawn(function()
+    while AntiAFK do
+        VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        wait(60)
+    end
+end)
+
+-- Círculo FOV
 local fovCircle = Drawing.new("Circle")
 fovCircle.Color = Color3.fromRGB(255, 255, 0)
 fovCircle.Thickness = 2
@@ -66,12 +77,13 @@ RunService.RenderStepped:Connect(function()
         local target = GetClosestPlayer()
         if target and target.Character and target.Character:FindFirstChild("Head") then
             local headPos = target.Character.Head.Position
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, headPos)
+            local newCF = CFrame.new(Camera.CFrame.Position, headPos)
+            Camera.CFrame = Camera.CFrame:Lerp(newCF, 0.08)
         end
     end
 end)
 
--- ESP persistente
+-- ESP
 local function AddESP(player)
     if not player.Character then return end
     if player.Character:FindFirstChild("PlayerESP") then return end
@@ -86,9 +98,7 @@ local function AddESP(player)
 end
 
 local function HandleCharacter(player)
-    if ESPEnabled then
-        AddESP(player)
-    end
+    if ESPEnabled then AddESP(player) end
     player.CharacterAdded:Connect(function()
         if ESPEnabled then
             task.wait(0.5)
@@ -121,18 +131,18 @@ Players.PlayerAdded:Connect(function(player)
     end)
 end)
 
--- Inf Jump
+-- Pulo Infinito
 UIS.JumpRequest:Connect(function()
     if InfJump then
         LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
     end
 end)
 
--- UI Controles
-MainTab:CreateSection("Aimbot Sistem")
+-- Interface
+MainTab:CreateSection("Aimbot")
 
 MainTab:CreateToggle({
-    Name = "Aimbot Ativar",
+    Name = "Ativar Aimbot",
     CurrentValue = false,
     Callback = function(Value)
         aimbotEnabled = Value
@@ -140,7 +150,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateSlider({
-    Name = "Tamanho do FOV",
+    Name = "FOV (Tamanho do Círculo)",
     Range = {50, 500},
     Increment = 5,
     Suffix = "px",
@@ -150,20 +160,18 @@ MainTab:CreateSlider({
     end,
 })
 
-MainTab:CreateSection("Player Sistem")
+MainTab:CreateSection("Jogador")
 
 MainTab:CreateSlider({
-    Name = "Velocidade (Speed)",
+    Name = "Velocidade",
     Range = {16, 300},
     Increment = 1,
     Suffix = "WalkSpeed",
     CurrentValue = SpeedValue,
     Callback = function(Value)
         SpeedValue = Value
-        if LocalPlayer.Character then
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.WalkSpeed = Value end
-        end
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = Value end
     end,
 })
 
@@ -175,10 +183,8 @@ MainTab:CreateSlider({
     CurrentValue = JumpPower,
     Callback = function(Value)
         JumpPower = Value
-        if LocalPlayer.Character then
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.JumpPower = Value end
-        end
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.JumpPower = Value end
     end,
 })
 
@@ -195,5 +201,23 @@ MainTab:CreateToggle({
     CurrentValue = false,
     Callback = function(Value)
         UpdateESP(Value)
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "FPS Boost",
+    Callback = function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                obj.Material = Enum.Material.SmoothPlastic
+                obj.Reflectance = 0
+            elseif obj:IsA("Decal") then
+                obj.Transparency = 1
+            end
+        end
+        sethiddenproperty(game:GetService("Lighting"), "Technology", Enum.Technology.Compatibility)
+        game:GetService("Lighting").FogEnd = 9e9
+        game:GetService("Lighting").GlobalShadows = false
+        game:GetService("Lighting").Brightness = 0
     end,
 })
